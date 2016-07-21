@@ -1,0 +1,121 @@
+---
+title: "CLIOTOP Group Badger"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(dygraphs)
+library(xts)
+source("inst/R/read_fun.R")
+d <- read_fun()
+tripids <- unique(levels(d[["ref"]])[d[["ref"]]])
+# 
+# db <- d %>% group_by(ref) %>% summarize(start = min(gmt), end = max(gmt), all = TRUE) %>% mutate(ID = row_number())
+
+db <- tibble(ref = "", event = "", value = Sys.time(), ID = 1)[0L, ]
+
+library(dplyr)
+library(tibble)
+mktable <- function() {
+  tab <- tibble(ref= "", event = "", value = Sys.time())
+  tab[0L, ]
+}
+populatetable <- function(ref, start, end, maxID) {
+  tibble(ref = ref, start = start, end = end, all = FALSE, ID = maxID + 1)
+}
+ 
+data1 <- reactive({
+  asub <- d[d$ref == input$ID, c("gmt", input$attribute_x1)]
+  
+  xts::xts(asub[, 2], asub$gmt)
+})
+data2 <- reactive({
+    asub <- d[d$ref == input$ID, c("gmt", input$attribute_x2)]
+  
+  xts::xts(asub[, 2], asub$gmt)
+})
+
+db0 <- mktable()
+
+```
+
+Data 
+================================
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+### Inputs
+
+```{r}
+#textInput("plan_name", label = "Name of  plan", value = "A plan name")
+#textInput("attribute_ID", label = "ID")
+# textInput("attribute_x1", label = "x1", 
+#             value = "LON")
+# textInput("attribute_x2", label = "x2", 
+#             value = "LAT")
+
+selectInput("attribute_x1", label = "Choose x1", 
+            names(d), selected = if("LON" %in% names(d)) "LON" else NULL)
+
+selectInput("attribute_x2", label = "Choose x2", 
+            names(d), selected = if("LAT" %in% names(d)) "LAT" else NULL)
+
+
+selectInput("ID", "Choose ID", as.list(tripids))
+numericInput("eventID", label = "Event ID", value = max(db$ID) + 1)
+actionButton("badge_start", "Badge start")
+actionButton("badge_end", "Badge end")
+
+
+actionButton("add_to_db", "Append!")
+appendDB <- observeEvent( input$badge_start, {
+ 
+  db <<- bind_rows(db, tibble(ref = input$ID, event = "start", value = Sys.time(), ID = max(db$ID) + 1))
+  
+})
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Plot x1
+
+```{r}
+renderDygraph(
+  dygraph(data1(), group = "badger") %>%
+      dygraphs::dyRangeSelector()
+)
+```
+
+### Plot x2
+
+```{r}
+renderDygraph(
+  dygraph(data2(), group = "badger") %>%
+      dygraphs::dyRangeSelector()
+)
+```
+
+Table Output
+=============================
+
+### Table 
+
+```{r}
+ renderTable({
+   db
+ })
+```
+
+### Download
+
+```{r}
+
+```
